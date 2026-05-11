@@ -1,0 +1,23 @@
+# Gradle
+.gradle/
+build/
+**/build/
+
+# Local SDK and machine-specific files
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# Native / generated build outputs
+.cxx/
+.externalNativeBuild/
+captures/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files created during local analysis
+.tmp_xlsx/

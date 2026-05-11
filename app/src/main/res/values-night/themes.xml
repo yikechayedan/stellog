@@ -1,0 +1,13 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.Stellog.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/stellog_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_stellog_launcher</item>
+        <item name="postSplashScreenTheme">@style/Theme.Stellog</item>
+    </style>
+
+    <!-- Base application theme. -->
+    <style name="Base.Theme.Stellog" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your dark theme here. -->
+        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+    </style>
+</resources>

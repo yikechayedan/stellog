@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="@color/white"
+        android:fillAlpha="0.96"
+        android:pathData="M35,32H73C77.42,32 81,35.58 81,40V74C81,78.42 77.42,82 73,82H35C30.58,82 27,78.42 27,74V40C27,35.58 30.58,32 35,32Z" />
+
+    <path
+        android:fillColor="@color/stellog_logo_soft"
+        android:pathData="M37,43H71V48H37Z" />
+
+    <path
+        android:fillColor="@color/stellog_logo_soft"
+        android:pathData="M37,57H49V69H37Z" />
+
+    <path
+        android:fillColor="@color/stellog_logo_soft"
+        android:pathData="M59,57H71V69H59Z" />
+
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M40,57L50,67L70,47"
+        android:strokeWidth="7"
+        android:strokeColor="@color/stellog_primary"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <path
+        android:fillColor="@color/stellog_accent"
+        android:pathData="M79,15L82.2,21.49L89.36,22.53L84.18,27.58L85.4,34.71L79,31.34L72.6,34.71L73.82,27.58L68.64,22.53L75.8,21.49Z" />
+</vector>

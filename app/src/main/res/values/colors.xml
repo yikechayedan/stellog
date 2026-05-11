@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="stellog_background">#F5FAF7</color>
+    <color name="stellog_ink">#13231F</color>
+    <color name="stellog_muted">#6D7D75</color>
+    <color name="stellog_primary">#1F8A70</color>
+    <color name="stellog_primary_dark">#12604F</color>
+    <color name="stellog_accent">#F2C94C</color>
+    <color name="stellog_logo_soft">#E4F3EC</color>
+    <color name="stellog_surface">#FFFFFFFF</color>
+    <color name="stellog_surface_alt">#EEF7F2</color>
+    <color name="stellog_line">#D9E6DF</color>
+    <color name="stellog_warning">#E9A23B</color>
+    <color name="stellog_danger">#D9634F</color>
+</resources>
