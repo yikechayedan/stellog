@@ -2,9 +2,14 @@ package com.example.stellog;
 
 import java.util.Calendar;
 
+/**
+ * 单次打卡记录。
+ *
+ * Habit 表示一个活动，CheckInRecord 表示该活动在某一天的一次完成记录。
+ */
 public class CheckInRecord {
-    public static final String SOURCE_NORMAL = "正常打卡";
-    public static final String SOURCE_PATCH = "补打卡";
+    public static final String SOURCE_NORMAL = "\u6b63\u5e38\u6253\u5361";
+    public static final String SOURCE_PATCH = "\u8865\u6253\u5361";
 
     public final long id;
     public final long habitId;
@@ -35,6 +40,9 @@ public class CheckInRecord {
         this.updatedAt = updatedAt;
     }
 
+    /**
+     * 只记录年月日，避免直接用毫秒时间戳比较时受到时分秒影响。
+     */
     public static class RecordDate {
         public final int year;
         public final int month;

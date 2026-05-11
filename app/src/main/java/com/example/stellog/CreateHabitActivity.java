@@ -10,6 +10,11 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+/**
+ * 创建活动页面。
+ *
+ * 目前只负责收集活动名称和单位，并通过 ActivityResult 返回给 MainActivity。
+ */
 public class CreateHabitActivity extends AppCompatActivity {
 
     @Override
@@ -18,6 +23,7 @@ public class CreateHabitActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_create_habit);
 
+        // 处理沉浸式系统栏，避免内容被状态栏或导航栏遮挡。
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.create_habit_root), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
@@ -26,27 +32,28 @@ public class CreateHabitActivity extends AppCompatActivity {
 
         findViewById(R.id.create_close_button).setOnClickListener(v -> finish());
         findViewById(R.id.create_cancel_button).setOnClickListener(v -> finish());
-        findViewById(R.id.create_save_button).setOnClickListener(v -> {
-            EditText nameInput = findViewById(R.id.habit_name_input);
-            EditText unitInput = findViewById(R.id.habit_unit_input);
+        findViewById(R.id.create_save_button).setOnClickListener(v -> saveHabitInput());
+    }
 
-            // 获取用户输入，并去掉前后空格
-            String name = nameInput.getText().toString().trim();
-            String unit = unitInput.getText().toString().trim();
+    private void saveHabitInput() {
+        EditText nameInput = findViewById(R.id.habit_name_input);
+        EditText unitInput = findViewById(R.id.habit_unit_input);
 
-            // 名称不能为空
-            if (name.isEmpty()) {
-                nameInput.setError("活动名称不能为空");
-                return;
-            }
+        // 名称必须填写；单位允许为空。
+        String name = nameInput.getText().toString().trim();
+        String unit = unitInput.getText().toString().trim();
 
-            // 单位允许为空；如果没填，就保存为空字符串
-            Intent resultIntent = new Intent();
-            resultIntent.putExtra("habit_name", name);
-            resultIntent.putExtra("habit_unit", unit);
+        if (name.isEmpty()) {
+            nameInput.setError("\u6d3b\u52a8\u540d\u79f0\u4e0d\u80fd\u4e3a\u7a7a");
+            return;
+        }
 
-            setResult(RESULT_OK, resultIntent);
-            finish();
-        });
+        // 通过 Intent 返回输入结果，真正创建 Habit 的逻辑由 MainActivity 统一处理。
+        Intent resultIntent = new Intent();
+        resultIntent.putExtra("habit_name", name);
+        resultIntent.putExtra("habit_unit", unit);
+
+        setResult(RESULT_OK, resultIntent);
+        finish();
     }
 }

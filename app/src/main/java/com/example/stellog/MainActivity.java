@@ -23,17 +23,29 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
+/**
+ * 应用主页面。
+ *
+ * 当前页面负责展示活动卡片、处理卡片滑动、创建活动结果、今日打卡和取消打卡。
+ */
 public class MainActivity extends AppCompatActivity {
 
+    // 当前版本中每次打卡默认增加 1，后续可以改成用户填写的数量。
     private static final long DEFAULT_CHECK_IN_VALUE = 1L;
 
+    // 内存中的活动列表；后续接入数据库时可替换为持久化查询结果。
     private final List<Habit> habits = new ArrayList<>();
+
+    // 内存中的打卡记录列表；卡片上的本周状态和今日状态都由它推导。
     private final List<CheckInRecord> records = new ArrayList<>();
 
     private HabitPagerAdapter habitAdapter;
     private TextView pageIndicatorText;
+
+    // 记录当前 ViewPager2 展示的是第几张卡片，便于打卡后只刷新当前页。
     private int currentHabitPosition = 0;
 
+    // 接收“创建活动页面”返回的数据，并将其转成 Habit 加入列表。
     private final ActivityResultLauncher<Intent> createHabitLauncher =
             registerForActivityResult(
                     new ActivityResultContracts.StartActivityForResult(),
@@ -61,6 +73,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+
+        // 开启 EdgeToEdge 后，手动给根布局添加系统栏 padding，避免内容被遮挡。
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
@@ -77,14 +91,25 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * 初始化活动卡片 ViewPager。
+     *
+     * ViewPager2 负责连续滑动效果，RecyclerView.Adapter 负责把 Habit 渲染成单张卡片。
+     */
     private void setupHabitPager() {
         ViewPager2 habitPager = findViewById(R.id.habit_pager);
         habitAdapter = new HabitPagerAdapter(habits);
         habitPager.setAdapter(habitAdapter);
+
+        // 预渲染相邻卡片，让左右滑动时能看到连续过渡。
         habitPager.setOffscreenPageLimit(1);
         habitPager.setClipToPadding(false);
         habitPager.setClipChildren(false);
+
+        // 左右 padding 控制卡片视觉宽度和两侧露出范围。
         habitPager.setPadding(128, 0, 128, 0);
+
+        // 非当前卡片略微缩小、变淡，增强层次感。
         habitPager.setPageTransformer((page, position) -> {
             float scale = 0.94f + (1 - Math.min(Math.abs(position), 1f)) * 0.06f;
             page.setScaleY(scale);
@@ -99,6 +124,9 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * 创建一个新活动并刷新卡片列表。
+     */
     private void addHabit(String name, String unit) {
         long now = System.currentTimeMillis();
         long newId = habits.isEmpty() ? 1L : habits.get(habits.size() - 1).id + 1L;
@@ -119,11 +147,15 @@ public class MainActivity extends AppCompatActivity {
         habits.add(newHabit);
         habitAdapter.notifyItemInserted(habits.size() - 1);
 
+        // 创建完成后自动滑到新活动卡片。
         ViewPager2 habitPager = findViewById(R.id.habit_pager);
         habitPager.setCurrentItem(habits.size() - 1, true);
         updateHeader(habits.size() - 1);
     }
 
+    /**
+     * 更新右上角页码。
+     */
     private void updateHeader(int position) {
         if (habits.isEmpty()) {
             pageIndicatorText.setText(getString(R.string.page_indicator_format, 0, 0));
@@ -136,6 +168,9 @@ public class MainActivity extends AppCompatActivity {
         return getTodayRecord(habit.id) != null;
     }
 
+    /**
+     * 查找指定活动今天的打卡记录。
+     */
     private CheckInRecord getTodayRecord(long habitId) {
         CheckInRecord.RecordDate today = CheckInRecord.RecordDate.today();
         for (CheckInRecord record : records) {
@@ -146,6 +181,9 @@ public class MainActivity extends AppCompatActivity {
         return null;
     }
 
+    /**
+     * 今日打卡：新增 record，并同步更新 Habit 上的统计字段。
+     */
     private void checkInToday(Habit habit) {
         if (hasCheckedInToday(habit)) {
             return;
@@ -170,6 +208,9 @@ public class MainActivity extends AppCompatActivity {
         habitAdapter.notifyItemChanged(currentHabitPosition);
     }
 
+    /**
+     * 取消今日打卡：删除今天的 record，并回退 Habit 上的统计字段。
+     */
     private void cancelTodayCheckIn(Habit habit) {
         CheckInRecord todayRecord = getTodayRecord(habit.id);
         if (todayRecord == null) {
@@ -190,6 +231,9 @@ public class MainActivity extends AppCompatActivity {
         return records.get(records.size() - 1).id + 1L;
     }
 
+    /**
+     * 判断指定活动在某一天是否已经打卡。
+     */
     private boolean hasRecordOnDate(long habitId, CheckInRecord.RecordDate date) {
         for (CheckInRecord record : records) {
             if (record.habitId == habitId && record.date.isSameDay(date)) {
@@ -199,6 +243,9 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
+    /**
+     * 生成本周周一到周日的日期列表，用于绑定 7 个打卡圆点。
+     */
     private List<CheckInRecord.RecordDate> getCurrentWeekDates() {
         List<CheckInRecord.RecordDate> weekDates = new ArrayList<>();
         Calendar calendar = Calendar.getInstance();
@@ -214,13 +261,9 @@ public class MainActivity extends AppCompatActivity {
         return weekDates;
     }
 
-    private String formatValueWithUnit(long value, String unit) {
-        if (unit == null || unit.isEmpty()) {
-            return String.valueOf(value);
-        }
-        return value + " " + unit;
-    }
-
+    /**
+     * ViewPager2 使用的适配器，将 Habit 列表转换为卡片页。
+     */
     private class HabitPagerAdapter extends RecyclerView.Adapter<HabitPagerAdapter.HabitViewHolder> {
         private final List<Habit> items;
 
@@ -246,6 +289,11 @@ public class MainActivity extends AppCompatActivity {
             return items.size();
         }
 
+        /**
+         * 单张卡片的 ViewHolder。
+         *
+         * 缓存控件引用，并负责把 Habit 和 CheckInRecord 状态渲染到 UI 上。
+         */
         class HabitViewHolder extends RecyclerView.ViewHolder {
             private final TextView habitName;
             private final TextView streakValue;
@@ -295,6 +343,7 @@ public class MainActivity extends AppCompatActivity {
 
                 bindWeekDots(habit.id);
 
+                // 未打卡时显示“打卡”按钮；已打卡后显示“记录详细 / 取消”操作区。
                 checkInButton.setVisibility(checkedInToday ? View.GONE : View.VISIBLE);
                 checkedActions.setVisibility(checkedInToday ? View.VISIBLE : View.GONE);
                 checkInButton.setOnClickListener(v -> checkInToday(habit));
@@ -306,7 +355,7 @@ public class MainActivity extends AppCompatActivity {
                 for (int i = 0; i < weekDots.length; i++) {
                     boolean checked = hasRecordOnDate(habitId, weekDates.get(i));
                     weekDots[i].setBackgroundResource(checked ? R.drawable.bg_circle_green : R.drawable.bg_circle_outline);
-                    weekDots[i].setText(checked ? "✓" : "");
+                    weekDots[i].setText(checked ? "\u2713" : "");
                     weekDots[i].setTextColor(getColor(R.color.white));
                 }
             }

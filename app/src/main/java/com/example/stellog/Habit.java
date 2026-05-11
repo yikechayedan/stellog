@@ -1,15 +1,28 @@
 package com.example.stellog;
 
+/**
+ * 习惯活动的数据模型。
+ *
+ * 目前数据只保存在内存中，后续接入数据库时可以直接按这个结构建表。
+ */
 public class Habit {
     public final long id;
     public final long userId;
     public final String name;
     public final String unit;
+
+    // 已打卡次数，用于卡片上的“多少天收获”展示。
     public int recordNum;
+
     public final boolean reminderEnabled;
     public final int sortWeight;
+
+    // 累计完成值，目前每次打卡默认增加 1。
     public long totalValue;
+
     public final long createdAt;
+
+    // 更新时间会在打卡或取消打卡时刷新。
     public long updatedAt;
 
     public Habit(
