@@ -15,10 +15,10 @@ public class CheckInRecord {
     public final long habitId;
     public final long userId;
     public final RecordDate date;
-    public final long value;
+    public long value; // 用户在记录详细是自行填写的数字
     public final String source;
     public final long createdAt;
-    public final long updatedAt;
+    public long updatedAt;
 
     public CheckInRecord(
             long id,

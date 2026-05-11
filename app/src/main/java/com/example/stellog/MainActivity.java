@@ -6,6 +6,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResultLauncher;
@@ -22,6 +23,7 @@ import androidx.viewpager2.widget.ViewPager2;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 应用主页面。
@@ -31,7 +33,7 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity {
 
     // 当前版本中每次打卡默认增加 1，后续可以改成用户填写的数量。
-    private static final long DEFAULT_CHECK_IN_VALUE = 1L;
+    private static final long DEFAULT_CHECK_IN_VALUE = 0L;
 
     // 内存中的活动列表；后续接入数据库时可替换为持久化查询结果。
     private final List<Habit> habits = new ArrayList<>();
@@ -39,6 +41,7 @@ public class MainActivity extends AppCompatActivity {
     // 内存中的打卡记录列表；卡片上的本周状态和今日状态都由它推导。
     private final List<CheckInRecord> records = new ArrayList<>();
 
+    private ViewPager2 habitPager;
     private HabitPagerAdapter habitAdapter;
     private TextView pageIndicatorText;
 
@@ -64,6 +67,21 @@ public class MainActivity extends AppCompatActivity {
                         }
 
                         addHabit(name.trim(), unit.trim());
+                    }
+            );
+
+    // 接收记录详细页面返回的新数值，并同步更新今日 record 与活动累计值。
+    private final ActivityResultLauncher<Intent> recordDetailLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    result -> {
+                        if (result.getResultCode() != RESULT_OK || result.getData() == null) {
+                            return;
+                        }
+
+                        long habitId = result.getData().getLongExtra("habit_id", -1L);
+                        long newValue = result.getData().getLongExtra("record_value", DEFAULT_CHECK_IN_VALUE);
+                        applyRecordDetailValue(habitId, newValue);
                     }
             );
 
@@ -97,7 +115,7 @@ public class MainActivity extends AppCompatActivity {
      * ViewPager2 负责连续滑动效果，RecyclerView.Adapter 负责把 Habit 渲染成单张卡片。
      */
     private void setupHabitPager() {
-        ViewPager2 habitPager = findViewById(R.id.habit_pager);
+        habitPager = findViewById(R.id.habit_pager);
         habitAdapter = new HabitPagerAdapter(habits);
         habitPager.setAdapter(habitAdapter);
 
@@ -113,7 +131,7 @@ public class MainActivity extends AppCompatActivity {
         habitPager.setPageTransformer((page, position) -> {
             float scale = 0.94f + (1 - Math.min(Math.abs(position), 1f)) * 0.06f;
             page.setScaleY(scale);
-            page.setAlpha(0.55f + (1 - Math.min(Math.abs(position), 1f)) * 0.45f);
+            page.setAlpha(0.28f + (1 - Math.min(Math.abs(position), 1f)) * 0.72f);
         });
         habitPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
@@ -148,7 +166,6 @@ public class MainActivity extends AppCompatActivity {
         habitAdapter.notifyItemInserted(habits.size() - 1);
 
         // 创建完成后自动滑到新活动卡片。
-        ViewPager2 habitPager = findViewById(R.id.habit_pager);
         habitPager.setCurrentItem(habits.size() - 1, true);
         updateHeader(habits.size() - 1);
     }
@@ -162,10 +179,6 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         pageIndicatorText.setText(getString(R.string.page_indicator_format, position + 1, habits.size()));
-    }
-
-    private boolean hasCheckedInToday(Habit habit) {
-        return getTodayRecord(habit.id) != null;
     }
 
     /**
@@ -185,7 +198,7 @@ public class MainActivity extends AppCompatActivity {
      * 今日打卡：新增 record，并同步更新 Habit 上的统计字段。
      */
     private void checkInToday(Habit habit) {
-        if (hasCheckedInToday(habit)) {
+        if (getTodayRecord(habit.id) != null) {
             return;
         }
 
@@ -262,6 +275,70 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
+     * 生成卡片上显示的今日日期文本，例如 2026-05-11。
+     */
+    private String getTodayDateString() {
+        CheckInRecord.RecordDate today = CheckInRecord.RecordDate.today();
+        return String.format(Locale.getDefault(), "%04d-%02d-%02d", today.year, today.month, today.day);
+    }
+
+    /**
+     * 打开记录详细页面，让用户填写今天完成的数量。
+     */
+    private void showRecordDetailPage(Habit habit) {
+        CheckInRecord todayRecord = getTodayRecord(habit.id);
+
+        if (todayRecord == null) {
+            Toast.makeText(this, "请先完成今日打卡", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Intent intent = new Intent(MainActivity.this, RecordDetailActivity.class);
+        intent.putExtra("habit_id", habit.id);
+        intent.putExtra("habit_name", habit.name);
+        intent.putExtra("habit_unit", habit.unit);
+        intent.putExtra("record_value", todayRecord.value);
+        recordDetailLauncher.launch(intent);
+    }
+
+    private void applyRecordDetailValue(long habitId, long newValue) {
+        int habitPosition = findHabitPosition(habitId);
+        if (habitPosition < 0) {
+            return;
+        }
+
+        Habit habit = habits.get(habitPosition);
+        CheckInRecord todayRecord = getTodayRecord(habitId);
+        if (todayRecord == null) {
+            return;
+        }
+
+        long oldValue = todayRecord.value;
+        if (newValue == oldValue) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        todayRecord.value = newValue;
+        todayRecord.updatedAt = now;
+        habit.totalValue = habit.totalValue - oldValue + newValue;
+        habit.updatedAt = now;
+
+        habitAdapter.notifyItemChanged(habitPosition);
+    }
+
+    private int findHabitPosition(long habitId) {
+        for (int i = 0; i < habits.size(); i++) {
+            if (habits.get(i).id == habitId) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+
+
+    /**
      * ViewPager2 使用的适配器，将 Habit 列表转换为卡片页。
      */
     private class HabitPagerAdapter extends RecyclerView.Adapter<HabitPagerAdapter.HabitViewHolder> {
@@ -326,19 +403,24 @@ public class MainActivity extends AppCompatActivity {
 
             void bind(Habit habit) {
                 int primaryColor = getColor(R.color.stellog_primary);
-                boolean checkedInToday = hasCheckedInToday(habit);
+                // 找到当前 habit 今天的打卡记录
+                CheckInRecord todayRecord = getTodayRecord(habit.id);
+                boolean checkedInToday = todayRecord != null;
+
+                // 此日计显示今天这条 record 的 value，而不是默认值
+                long todayValue = todayRecord == null ? 0 : todayRecord.value;
 
                 habitName.setText(habit.name);
                 streakValue.setText(String.valueOf(habit.recordNum));
                 streakValue.setTextColor(primaryColor);
                 targetSummary.setText(getString(
                         R.string.habit_target_summary,
-                        DEFAULT_CHECK_IN_VALUE,
+                        todayValue,
                         habit.unit,
                         habit.totalValue,
                         habit.unit
                 ));
-                todayDate.setText(getString(R.string.today_date_format, "2026-05-11"));
+                todayDate.setText(getString(R.string.today_date_format, getTodayDateString()));
                 todayDate.setTextColor(primaryColor);
 
                 bindWeekDots(habit.id);
@@ -348,6 +430,8 @@ public class MainActivity extends AppCompatActivity {
                 checkedActions.setVisibility(checkedInToday ? View.VISIBLE : View.GONE);
                 checkInButton.setOnClickListener(v -> checkInToday(habit));
                 cancelCheckInButton.setOnClickListener(v -> cancelTodayCheckIn(habit));
+                // 为“记录详细”按钮设置点击监听器
+                itemView.findViewById(R.id.record_detail_button).setOnClickListener(v -> showRecordDetailPage(habit));
             }
 
             private void bindWeekDots(long habitId) {

@@ -12,6 +12,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Stellog">
         <activity
+            android:name=".RecordDetailActivity"
+            android:exported="false" />
+        <activity
             android:name=".CreateHabitActivity"
             android:exported="false" />
         <activity

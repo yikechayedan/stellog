@@ -214,7 +214,7 @@
                     android:textSize="18sp" />
 
                 <TextView
-                    android:id="@+id/detail_button"
+                    android:id="@+id/record_detail_button"
                     android:layout_width="116dp"
                     android:layout_height="wrap_content"
                     android:gravity="center"

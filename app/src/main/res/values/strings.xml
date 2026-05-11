@@ -10,4 +10,8 @@
     <string name="habit_unit_label">计量单位</string>
     <string name="cancel">取消</string>
     <string name="save">保存</string>
+    <string name="record_detail_title">记录详细</string>
+    <string name="record_detail_subtitle">%1$s，单位：%2$s</string>
+    <string name="record_value_label">完成数量</string>
+    <string name="record_value_hint">请输入今天完成的数量</string>
 </resources>
