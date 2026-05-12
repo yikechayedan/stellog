@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.GridLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -21,12 +22,16 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.example.stellog.R;
+import com.example.stellog.data.model.CalendarDaySpec;
 import com.example.stellog.data.model.CheckInRecord;
 import com.example.stellog.data.model.Habit;
 import com.example.stellog.data.repository.HabitRepository;
 import com.example.stellog.util.DateUtils;
+import com.example.stellog.util.DimensionUtils;
 
+import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 应用主页面。
@@ -47,8 +52,14 @@ public class MainActivity extends AppCompatActivity {
     private ViewPager2 habitPager;
     private HabitPagerAdapter habitAdapter;
     private TextView pageIndicatorText;
+    private View calendarContent;
+    private TextView homeTab;
+    private TextView calendarTab;
+    private GridLayout calendarGrid;
+    private TextView calendarMonthTitle;
+    private final Calendar visibleMonth = Calendar.getInstance();
+    private Calendar selectedDate = Calendar.getInstance();
 
-    // 记录当前 ViewPager2 展示的是第几张卡片，便于打卡后只刷新当前页。
     private int currentHabitPosition = 0;
 
     // 接收“创建活动页面”返回的数据，并将其转成 Habit 加入列表。
@@ -103,12 +114,150 @@ public class MainActivity extends AppCompatActivity {
         });
 
         pageIndicatorText = findViewById(R.id.page_indicator_text);
+        calendarContent = findViewById(R.id.calendar_content);
+        homeTab = findViewById(R.id.home_tab);
+        calendarTab = findViewById(R.id.calendar_tab);
+        calendarGrid = findViewById(R.id.calendar_grid);
+        calendarMonthTitle = findViewById(R.id.calendar_month_title);
         setupHabitPager();
         updateHeader(0);
+        setupCalendarNavigation();
+        renderCalendarGrid();
+        setupBottomTabs();
 
         findViewById(R.id.add_activity_button).setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, CreateHabitActivity.class);
             createHabitLauncher.launch(intent);
+        });
+    }
+
+    private void setupBottomTabs() {
+        homeTab.setOnClickListener(v -> showHomePage());
+        calendarTab.setOnClickListener(v -> showCalendarPage());
+        showHomePage();
+    }
+
+    private void showHomePage() {
+        findViewById(R.id.view_mode_switch).setVisibility(View.VISIBLE);
+        findViewById(R.id.page_indicator).setVisibility(View.VISIBLE);
+        findViewById(R.id.side_rail).setVisibility(View.VISIBLE);
+        habitPager.setVisibility(View.VISIBLE);
+        findViewById(R.id.add_activity_button).setVisibility(View.VISIBLE);
+        calendarContent.setVisibility(View.GONE);
+
+        homeTab.setTextColor(getColor(R.color.stellog_primary));
+        homeTab.setTypeface(null, android.graphics.Typeface.BOLD);
+        calendarTab.setTextColor(getColor(R.color.stellog_ink));
+        calendarTab.setTypeface(null, android.graphics.Typeface.NORMAL);
+    }
+
+    private void showCalendarPage() {
+        findViewById(R.id.view_mode_switch).setVisibility(View.GONE);
+        findViewById(R.id.page_indicator).setVisibility(View.GONE);
+        findViewById(R.id.side_rail).setVisibility(View.GONE);
+        habitPager.setVisibility(View.GONE);
+        findViewById(R.id.add_activity_button).setVisibility(View.GONE);
+        calendarContent.setVisibility(View.VISIBLE);
+
+        homeTab.setTextColor(getColor(R.color.stellog_ink));
+        homeTab.setTypeface(null, android.graphics.Typeface.NORMAL);
+        calendarTab.setTextColor(getColor(R.color.stellog_primary));
+        calendarTab.setTypeface(null, android.graphics.Typeface.BOLD);
+    }
+
+    private void setupCalendarNavigation() {
+        visibleMonth.set(Calendar.DAY_OF_MONTH, 1);
+        DateUtils.clearTime(selectedDate);
+        findViewById(R.id.calendar_prev_month).setOnClickListener(v -> {
+            visibleMonth.add(Calendar.MONTH, -1);
+            renderCalendarGrid();
+        });
+        findViewById(R.id.calendar_next_month).setOnClickListener(v -> {
+            visibleMonth.add(Calendar.MONTH, 1);
+            renderCalendarGrid();
+        });
+    }
+
+    private void renderCalendarGrid() {
+        calendarMonthTitle.setText(String.format(
+                Locale.CHINA,
+                "%d \u5E74 %d \u6708",
+                visibleMonth.get(Calendar.YEAR),
+                visibleMonth.get(Calendar.MONTH) + 1
+        ));
+
+        LayoutInflater inflater = LayoutInflater.from(this);
+        calendarGrid.removeAllViews();
+        CalendarDaySpec[] days = buildVisibleMonthDays();
+        for (int i = 0; i < days.length; i++) {
+            CalendarDaySpec day = days[i];
+            View dayView = inflater.inflate(R.layout.item_calendar_day, calendarGrid, false);
+            bindCalendarDay(dayView, day);
+
+            GridLayout.LayoutParams params = new GridLayout.LayoutParams(
+                    GridLayout.spec(i / 7),
+                    GridLayout.spec(i % 7, 1f)
+            );
+            params.width = 0;
+            params.height = DimensionUtils.dpToPx(getResources(), 44);
+            dayView.setLayoutParams(params);
+            calendarGrid.addView(dayView);
+        }
+    }
+
+    private CalendarDaySpec[] buildVisibleMonthDays() {
+        Calendar firstDay = (Calendar) visibleMonth.clone();
+        firstDay.set(Calendar.DAY_OF_MONTH, 1);
+
+        int leadingDays = (firstDay.get(Calendar.DAY_OF_WEEK) + 5) % 7;
+        Calendar cellDate = (Calendar) firstDay.clone();
+        cellDate.add(Calendar.DAY_OF_MONTH, -leadingDays);
+
+        Calendar today = Calendar.getInstance();
+        DateUtils.clearTime(today);
+        CalendarDaySpec[] days = new CalendarDaySpec[42];
+        int visibleYear = visibleMonth.get(Calendar.YEAR);
+        int visibleMonthValue = visibleMonth.get(Calendar.MONTH);
+
+        for (int i = 0; i < days.length; i++) {
+            boolean outsideMonth = cellDate.get(Calendar.YEAR) != visibleYear
+                    || cellDate.get(Calendar.MONTH) != visibleMonthValue;
+            boolean todayCell = !outsideMonth && DateUtils.isSameDate(cellDate, today);
+            boolean selected = !outsideMonth && DateUtils.isSameDate(cellDate, selectedDate);
+            days[i] = new CalendarDaySpec(
+                    (Calendar) cellDate.clone(),
+                    String.valueOf(cellDate.get(Calendar.DAY_OF_MONTH)),
+                    todayCell,
+                    selected,
+                    outsideMonth
+            );
+            cellDate.add(Calendar.DAY_OF_MONTH, 1);
+        }
+        return days;
+    }
+
+    private void bindCalendarDay(View dayView, CalendarDaySpec day) {
+        TextView dayNumber = dayView.findViewById(R.id.calendar_day_number);
+        TextView badge = dayView.findViewById(R.id.calendar_day_badge);
+        View todayDot = dayView.findViewById(R.id.calendar_today_dot);
+
+        dayNumber.setText(day.label);
+        dayNumber.setTextColor(getColor(day.outsideMonth ? R.color.stellog_line : R.color.stellog_ink));
+        dayNumber.setBackgroundResource(0);
+
+        if (day.selected) {
+            dayNumber.setBackgroundResource(R.drawable.bg_calendar_day_selected);
+            dayNumber.setTextColor(getColor(R.color.white));
+        }
+
+        todayDot.setVisibility(day.today && !day.selected ? View.VISIBLE : View.GONE);
+        badge.setVisibility(View.GONE);
+        dayView.setOnClickListener(v -> {
+            if (day.outsideMonth) {
+                return;
+            }
+            selectedDate = (Calendar) day.date.clone();
+            renderCalendarGrid();
         });
     }
 

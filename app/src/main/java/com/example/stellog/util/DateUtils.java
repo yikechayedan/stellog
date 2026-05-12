@@ -35,4 +35,17 @@ public final class DateUtils {
         CheckInRecord.RecordDate today = CheckInRecord.RecordDate.today();
         return String.format(Locale.getDefault(), "%04d-%02d-%02d", today.year, today.month, today.day);
     }
+
+    public static boolean isSameDate(Calendar left, Calendar right) {
+        return left.get(Calendar.YEAR) == right.get(Calendar.YEAR)
+                && left.get(Calendar.MONTH) == right.get(Calendar.MONTH)
+                && left.get(Calendar.DAY_OF_MONTH) == right.get(Calendar.DAY_OF_MONTH);
+    }
+
+    public static void clearTime(Calendar calendar) {
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+    }
 }
