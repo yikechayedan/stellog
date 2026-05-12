@@ -14,4 +14,6 @@
     <string name="record_detail_subtitle">%1$s，单位：%2$s</string>
     <string name="record_value_label">完成数量</string>
     <string name="record_value_hint">请输入今天完成的数量</string>
+    <string name="habit_filter_title">选择活动</string>
+    <string name="confirm">确定</string>
 </resources>

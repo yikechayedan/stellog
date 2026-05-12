@@ -31,6 +31,7 @@ import com.example.stellog.util.DateUtils;
 import com.example.stellog.util.DimensionUtils;
 
 import java.util.Calendar;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -56,6 +57,7 @@ public class MainActivity extends AppCompatActivity {
     private View calendarContent;
     private TextView homeTab;
     private TextView calendarTab;
+    private TextView calendarActivityFilterLabel;
     private GridLayout calendarGrid;
     private TextView calendarMonthTitle;
     private TextView calendarSelectedDateTitle;
@@ -65,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView calendarCompletionRate;
     private final Calendar visibleMonth = Calendar.getInstance();
     private Calendar selectedDate = Calendar.getInstance();
+    private final HashSet<Long> selectedCalendarHabitIds = new HashSet<>();
 
     private int currentHabitPosition = 0;
 
@@ -87,6 +90,18 @@ public class MainActivity extends AppCompatActivity {
                         }
 
                         addHabit(name.trim(), unit.trim());
+                    }
+            );
+
+    // 接收活动筛选页面返回的 habitId 集合，并刷新日历计数与选中日期明细。
+    private final ActivityResultLauncher<Intent> habitFilterLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    result -> {
+                        if (result.getResultCode() != RESULT_OK || result.getData() == null) {
+                            return;
+                        }
+                        applyHabitFilterResult(result.getData());
                     }
             );
 
@@ -123,6 +138,7 @@ public class MainActivity extends AppCompatActivity {
         calendarContent = findViewById(R.id.calendar_content);
         homeTab = findViewById(R.id.home_tab);
         calendarTab = findViewById(R.id.calendar_tab);
+        calendarActivityFilterLabel = findViewById(R.id.calendar_activity_filter_label);
         calendarGrid = findViewById(R.id.calendar_grid);
         calendarMonthTitle = findViewById(R.id.calendar_month_title);
         calendarSelectedDateTitle = findViewById(R.id.calendar_selected_date_title);
@@ -132,6 +148,7 @@ public class MainActivity extends AppCompatActivity {
         calendarCompletionRate = findViewById(R.id.calendar_completion_rate);
         habitRepository = new HabitRepository(getApplicationContext());
         habits = habitRepository.getHabits();
+        selectAllCalendarHabits();
         setupHabitPager();
         updateHeader(0);
         setupCalendarNavigation();
@@ -142,6 +159,60 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent(MainActivity.this, CreateHabitActivity.class);
             createHabitLauncher.launch(intent);
         });
+        findViewById(R.id.calendar_activity_filter_button).setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, HabitFilterActivity.class);
+            intent.putExtra(
+                    HabitFilterActivity.EXTRA_SELECTED_HABIT_IDS,
+                    new HashSet<>(selectedCalendarHabitIds)
+            );
+            habitFilterLauncher.launch(intent);
+        });
+    }
+
+    private void selectAllCalendarHabits() {
+        selectedCalendarHabitIds.clear();
+        for (Habit habit : habits) {
+            selectedCalendarHabitIds.add(habit.id);
+        }
+        updateCalendarFilterLabel();
+    }
+
+    @SuppressWarnings("unchecked")
+    private void applyHabitFilterResult(Intent data) {
+        Object extra = data.getSerializableExtra(HabitFilterActivity.EXTRA_SELECTED_HABIT_IDS);
+        if (!(extra instanceof HashSet<?>)) {
+            return;
+        }
+
+        selectedCalendarHabitIds.clear();
+        selectedCalendarHabitIds.addAll((HashSet<Long>) extra);
+        updateCalendarFilterLabel();
+        renderCalendarGrid();
+    }
+
+    private void updateCalendarFilterLabel() {
+        if (calendarActivityFilterLabel == null) {
+            return;
+        }
+
+        int selectedCount = countSelectedExistingHabits();
+        if (selectedCount == habits.size() && !habits.isEmpty()) {
+            calendarActivityFilterLabel.setText("全部活动");
+        } else if (selectedCount == 0) {
+            calendarActivityFilterLabel.setText("未选择");
+        } else {
+            calendarActivityFilterLabel.setText(String.format(Locale.CHINA, "%d 个活动", selectedCount));
+        }
+    }
+
+    private int countSelectedExistingHabits() {
+        int count = 0;
+        for (Habit habit : habits) {
+            if (selectedCalendarHabitIds.contains(habit.id)) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private void setupBottomTabs() {
@@ -230,7 +301,11 @@ public class MainActivity extends AppCompatActivity {
         Calendar rangeEndDate = (Calendar) rangeStartDate.clone();
         rangeEndDate.add(Calendar.DAY_OF_MONTH, 41);
         Map<Integer, Integer> recordCountByDateKey =
-                habitRepository.getCheckInCountByDateRange(rangeStartDate, rangeEndDate);
+                habitRepository.getCheckInCountByDateRange(
+                        rangeStartDate,
+                        rangeEndDate,
+                        selectedCalendarHabitIds
+                );
 
         Calendar today = Calendar.getInstance();
         DateUtils.clearTime(today);
@@ -292,7 +367,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void renderSelectedDateRecords() {
         CheckInRecord.RecordDate recordDate = CheckInRecord.RecordDate.fromCalendar(selectedDate);
-        Map<Long, CheckInRecord> recordByHabitId = habitRepository.getRecordsByDate(recordDate);
+        Map<Long, CheckInRecord> recordByHabitId = habitRepository.getRecordsByDate(
+                recordDate,
+                selectedCalendarHabitIds
+        );
 
         calendarSelectedDateTitle.setText(String.format(
                 Locale.CHINA,
@@ -303,7 +381,12 @@ public class MainActivity extends AppCompatActivity {
 
         calendarSelectedRecords.removeAllViews();
         int completedCount = 0;
+        int planCount = 0;
         for (Habit habit : habits) {
+            if (!selectedCalendarHabitIds.contains(habit.id)) {
+                continue;
+            }
+            planCount++;
             CheckInRecord record = recordByHabitId.get(habit.id);
             boolean completed = record != null;
             if (completed) {
@@ -312,7 +395,6 @@ public class MainActivity extends AppCompatActivity {
             calendarSelectedRecords.addView(createSelectedDateRecordRow(habit, record));
         }
 
-        int planCount = habits.size();
         int completionRate = planCount == 0 ? 0 : Math.round(completedCount * 100f / planCount);
         calendarCompletedCount.setText(String.valueOf(completedCount));
         calendarPlanCount.setText(String.valueOf(planCount));
@@ -393,7 +475,9 @@ public class MainActivity extends AppCompatActivity {
      * 创建一个新活动并刷新卡片列表。
      */
     private void addHabit(String name, String unit) {
-        habitRepository.addHabit(name, unit);
+        Habit habit = habitRepository.addHabit(name, unit);
+        selectedCalendarHabitIds.add(habit.id);
+        updateCalendarFilterLabel();
         habitAdapter.notifyItemInserted(habits.size() - 1);
         renderCalendarGrid();
 

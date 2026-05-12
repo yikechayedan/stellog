@@ -12,6 +12,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Stellog">
         <activity
+            android:name=".ui.HabitFilterActivity"
+            android:exported="false" />
+        <activity
             android:name=".ui.RecordDetailActivity"
             android:exported="false" />
         <activity

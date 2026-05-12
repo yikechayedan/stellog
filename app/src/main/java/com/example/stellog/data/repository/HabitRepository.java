@@ -17,6 +17,7 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 习惯数据仓库。
@@ -115,10 +116,22 @@ public class HabitRepository {
         return getRecordOnDate(habitId, date) != null;
     }
 
-    public Map<Integer, Integer> getCheckInCountByDateRange(Calendar startDate, Calendar endDate) {
+    public Map<Integer, Integer> getCheckInCountByDateRange(
+            Calendar startDate,
+            Calendar endDate,
+            Set<Long> selectedHabitIds
+    ) {
+        if (selectedHabitIds == null || selectedHabitIds.isEmpty()) {
+            return new HashMap<>();
+        }
+
         int startDateKey = DateUtils.toDateKey(startDate);
         int endDateKey = DateUtils.toDateKey(endDate);
-        List<CheckInDateCount> counts = checkInRecordDao.countByDateRange(startDateKey, endDateKey);
+        List<CheckInDateCount> counts = checkInRecordDao.countByDateRange(
+                startDateKey,
+                endDateKey,
+                new ArrayList<>(selectedHabitIds)
+        );
 
         Map<Integer, Integer> countByDateKey = new HashMap<>();
         for (CheckInDateCount count : counts) {
@@ -127,9 +140,16 @@ public class HabitRepository {
         return countByDateKey;
     }
 
-    public Map<Long, CheckInRecord> getRecordsByDate(CheckInRecord.RecordDate date) {
+    public Map<Long, CheckInRecord> getRecordsByDate(CheckInRecord.RecordDate date, Set<Long> selectedHabitIds) {
+        if (selectedHabitIds == null || selectedHabitIds.isEmpty()) {
+            return new HashMap<>();
+        }
+
         int dateKey = DateUtils.toDateKey(date);
-        List<CheckInRecordEntity> entities = checkInRecordDao.findByDate(dateKey);
+        List<CheckInRecordEntity> entities = checkInRecordDao.findByDate(
+                dateKey,
+                new ArrayList<>(selectedHabitIds)
+        );
 
         Map<Long, CheckInRecord> recordByHabitId = new HashMap<>();
         for (CheckInRecordEntity entity : entities) {

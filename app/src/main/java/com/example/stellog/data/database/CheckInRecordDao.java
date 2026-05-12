@@ -22,14 +22,14 @@ public interface CheckInRecordDao {
     /**
      * 查询日历当前 42 个格子日期范围内，每一天共有多少条打卡记录。
      */
-    @Query("SELECT dateKey, COUNT(*) AS count FROM check_in_records WHERE dateKey BETWEEN :startDateKey AND :endDateKey GROUP BY dateKey")
-    List<CheckInDateCount> countByDateRange(int startDateKey, int endDateKey);
+    @Query("SELECT dateKey, COUNT(*) AS count FROM check_in_records WHERE dateKey BETWEEN :startDateKey AND :endDateKey AND habitId IN (:habitIds) GROUP BY dateKey")
+    List<CheckInDateCount> countByDateRange(int startDateKey, int endDateKey, List<Long> habitIds);
 
     /**
      * 查询某一天的所有打卡记录，日历详情区按 habitId 顺序展示。
      */
-    @Query("SELECT * FROM check_in_records WHERE dateKey = :dateKey ORDER BY habitId ASC")
-    List<CheckInRecordEntity> findByDate(int dateKey);
+    @Query("SELECT * FROM check_in_records WHERE dateKey = :dateKey AND habitId IN (:habitIds) ORDER BY habitId ASC")
+    List<CheckInRecordEntity> findByDate(int dateKey, List<Long> habitIds);
 
     /**
      * 生成下一条打卡记录 id。
