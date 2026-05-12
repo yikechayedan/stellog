@@ -11,12 +11,21 @@ public class CalendarDaySpec {
     public final boolean today;
     public final boolean selected;
     public final boolean outsideMonth;
+    public final int recordCount;
 
-    public CalendarDaySpec(Calendar date, String label, boolean today, boolean selected, boolean outsideMonth) {
+    public CalendarDaySpec(
+            Calendar date,
+            String label,
+            boolean today,
+            boolean selected,
+            boolean outsideMonth,
+            int recordCount
+    ) {
         this.date = date;
         this.label = label;
         this.today = today;
         this.selected = selected;
         this.outsideMonth = outsideMonth;
+        this.recordCount = recordCount;
     }
 }

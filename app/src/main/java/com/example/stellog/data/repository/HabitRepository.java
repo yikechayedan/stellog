@@ -3,15 +3,20 @@ package com.example.stellog.data.repository;
 import android.content.Context;
 
 import com.example.stellog.data.database.CheckInRecordDao;
+import com.example.stellog.data.database.CheckInDateCount;
 import com.example.stellog.data.database.CheckInRecordEntity;
 import com.example.stellog.data.database.HabitDao;
 import com.example.stellog.data.database.HabitEntity;
 import com.example.stellog.data.database.StellogDatabase;
 import com.example.stellog.data.model.CheckInRecord;
 import com.example.stellog.data.model.Habit;
+import com.example.stellog.util.DateUtils;
 
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 习惯数据仓库。
@@ -110,6 +115,30 @@ public class HabitRepository {
         return getRecordOnDate(habitId, date) != null;
     }
 
+    public Map<Integer, Integer> getCheckInCountByDateRange(Calendar startDate, Calendar endDate) {
+        int startDateKey = DateUtils.toDateKey(startDate);
+        int endDateKey = DateUtils.toDateKey(endDate);
+        List<CheckInDateCount> counts = checkInRecordDao.countByDateRange(startDateKey, endDateKey);
+
+        Map<Integer, Integer> countByDateKey = new HashMap<>();
+        for (CheckInDateCount count : counts) {
+            countByDateKey.put(count.dateKey, count.count);
+        }
+        return countByDateKey;
+    }
+
+    public Map<Long, CheckInRecord> getRecordsByDate(CheckInRecord.RecordDate date) {
+        int dateKey = DateUtils.toDateKey(date);
+        List<CheckInRecordEntity> entities = checkInRecordDao.findByDate(dateKey);
+
+        Map<Long, CheckInRecord> recordByHabitId = new HashMap<>();
+        for (CheckInRecordEntity entity : entities) {
+            CheckInRecord record = entity.toModel();
+            recordByHabitId.put(record.habitId, record);
+        }
+        return recordByHabitId;
+    }
+
     public boolean applyRecordDetailValue(long habitId, long newValue) {
         int habitPosition = findHabitPosition(habitId);
         if (habitPosition < 0) {
@@ -147,12 +176,10 @@ public class HabitRepository {
     }
 
     private CheckInRecord getRecordOnDate(long habitId, CheckInRecord.RecordDate date) {
-        // 数据库中把 RecordDate 拆成 year/month/day，避免时间戳比较受时分秒影响。
+        // 单日查询走 dateKey 索引，避免逐字段比较时无法复用日历范围查询的索引策略。
         CheckInRecordEntity entity = checkInRecordDao.findOnDate(
                 habitId,
-                date.year,
-                date.month,
-                date.day
+                DateUtils.toDateKey(date)
         );
         if (entity == null) {
             return null;

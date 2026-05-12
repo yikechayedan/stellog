@@ -14,7 +14,7 @@ import androidx.room.RoomDatabase;
  */
 @Database(
         entities = {HabitEntity.class, CheckInRecordEntity.class},
-        version = 1,
+        version = 2,
         exportSchema = false
 )
 public abstract class StellogDatabase extends RoomDatabase {

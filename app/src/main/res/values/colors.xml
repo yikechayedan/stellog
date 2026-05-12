@@ -7,6 +7,7 @@
     <color name="stellog_muted">#6D7D75</color>
     <color name="stellog_primary">#1F8A70</color>
     <color name="stellog_primary_dark">#12604F</color>
+    <color name="stellog_primary_soft">#DDF3EA</color>
     <color name="stellog_accent">#F2C94C</color>
     <color name="stellog_logo_soft">#E4F3EC</color>
     <color name="stellog_surface">#FFFFFFFF</color>

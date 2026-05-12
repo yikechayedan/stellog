@@ -6,6 +6,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.GridLayout;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -32,6 +33,7 @@ import com.example.stellog.util.DimensionUtils;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * 应用主页面。
@@ -56,6 +58,11 @@ public class MainActivity extends AppCompatActivity {
     private TextView calendarTab;
     private GridLayout calendarGrid;
     private TextView calendarMonthTitle;
+    private TextView calendarSelectedDateTitle;
+    private LinearLayout calendarSelectedRecords;
+    private TextView calendarCompletedCount;
+    private TextView calendarPlanCount;
+    private TextView calendarCompletionRate;
     private final Calendar visibleMonth = Calendar.getInstance();
     private Calendar selectedDate = Calendar.getInstance();
 
@@ -118,6 +125,11 @@ public class MainActivity extends AppCompatActivity {
         calendarTab = findViewById(R.id.calendar_tab);
         calendarGrid = findViewById(R.id.calendar_grid);
         calendarMonthTitle = findViewById(R.id.calendar_month_title);
+        calendarSelectedDateTitle = findViewById(R.id.calendar_selected_date_title);
+        calendarSelectedRecords = findViewById(R.id.calendar_selected_records);
+        calendarCompletedCount = findViewById(R.id.calendar_completed_count);
+        calendarPlanCount = findViewById(R.id.calendar_plan_count);
+        calendarCompletionRate = findViewById(R.id.calendar_completion_rate);
         habitRepository = new HabitRepository(getApplicationContext());
         habits = habitRepository.getHabits();
         setupHabitPager();
@@ -204,6 +216,7 @@ public class MainActivity extends AppCompatActivity {
             dayView.setLayoutParams(params);
             calendarGrid.addView(dayView);
         }
+        renderSelectedDateRecords();
     }
 
     private CalendarDaySpec[] buildVisibleMonthDays() {
@@ -213,6 +226,11 @@ public class MainActivity extends AppCompatActivity {
         int leadingDays = (firstDay.get(Calendar.DAY_OF_WEEK) + 5) % 7;
         Calendar cellDate = (Calendar) firstDay.clone();
         cellDate.add(Calendar.DAY_OF_MONTH, -leadingDays);
+        Calendar rangeStartDate = (Calendar) cellDate.clone();
+        Calendar rangeEndDate = (Calendar) rangeStartDate.clone();
+        rangeEndDate.add(Calendar.DAY_OF_MONTH, 41);
+        Map<Integer, Integer> recordCountByDateKey =
+                habitRepository.getCheckInCountByDateRange(rangeStartDate, rangeEndDate);
 
         Calendar today = Calendar.getInstance();
         DateUtils.clearTime(today);
@@ -225,12 +243,14 @@ public class MainActivity extends AppCompatActivity {
                     || cellDate.get(Calendar.MONTH) != visibleMonthValue;
             boolean todayCell = !outsideMonth && DateUtils.isSameDate(cellDate, today);
             boolean selected = !outsideMonth && DateUtils.isSameDate(cellDate, selectedDate);
+            int recordCount = recordCountByDateKey.getOrDefault(DateUtils.toDateKey(cellDate), 0);
             days[i] = new CalendarDaySpec(
                     (Calendar) cellDate.clone(),
                     String.valueOf(cellDate.get(Calendar.DAY_OF_MONTH)),
                     todayCell,
                     selected,
-                    outsideMonth
+                    outsideMonth,
+                    recordCount
             );
             cellDate.add(Calendar.DAY_OF_MONTH, 1);
         }
@@ -249,10 +269,18 @@ public class MainActivity extends AppCompatActivity {
         if (day.selected) {
             dayNumber.setBackgroundResource(R.drawable.bg_calendar_day_selected);
             dayNumber.setTextColor(getColor(R.color.white));
+        } else if (day.recordCount > 0) {
+            dayNumber.setBackgroundResource(R.drawable.bg_calendar_day_recorded);
+            dayNumber.setTextColor(getColor(R.color.stellog_primary));
         }
 
         todayDot.setVisibility(day.today && !day.selected ? View.VISIBLE : View.GONE);
-        badge.setVisibility(View.GONE);
+        if (day.recordCount > 1) {
+            badge.setText(String.valueOf(day.recordCount));
+            badge.setVisibility(View.VISIBLE);
+        } else {
+            badge.setVisibility(View.GONE);
+        }
         dayView.setOnClickListener(v -> {
             if (day.outsideMonth) {
                 return;
@@ -260,6 +288,72 @@ public class MainActivity extends AppCompatActivity {
             selectedDate = (Calendar) day.date.clone();
             renderCalendarGrid();
         });
+    }
+
+    private void renderSelectedDateRecords() {
+        CheckInRecord.RecordDate recordDate = CheckInRecord.RecordDate.fromCalendar(selectedDate);
+        Map<Long, CheckInRecord> recordByHabitId = habitRepository.getRecordsByDate(recordDate);
+
+        calendarSelectedDateTitle.setText(String.format(
+                Locale.CHINA,
+                "%d 月 %d 日",
+                recordDate.month,
+                recordDate.day
+        ));
+
+        calendarSelectedRecords.removeAllViews();
+        int completedCount = 0;
+        for (Habit habit : habits) {
+            CheckInRecord record = recordByHabitId.get(habit.id);
+            boolean completed = record != null;
+            if (completed) {
+                completedCount++;
+            }
+            calendarSelectedRecords.addView(createSelectedDateRecordRow(habit, record));
+        }
+
+        int planCount = habits.size();
+        int completionRate = planCount == 0 ? 0 : Math.round(completedCount * 100f / planCount);
+        calendarCompletedCount.setText(String.valueOf(completedCount));
+        calendarPlanCount.setText(String.valueOf(planCount));
+        calendarCompletionRate.setText(String.format(Locale.CHINA, "%d%%", completionRate));
+    }
+
+    private TextView createSelectedDateRecordRow(Habit habit, CheckInRecord record) {
+        boolean completed = record != null;
+        TextView row = new TextView(this);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                DimensionUtils.dpToPx(getResources(), 52)
+        );
+        if (calendarSelectedRecords.getChildCount() > 0) {
+            params.topMargin = DimensionUtils.dpToPx(getResources(), 10);
+        }
+        row.setLayoutParams(params);
+        row.setBackgroundResource(R.drawable.bg_calendar_summary);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setPadding(
+                DimensionUtils.dpToPx(getResources(), 16),
+                0,
+                DimensionUtils.dpToPx(getResources(), 16),
+                0
+        );
+        row.setTextColor(getColor(completed ? R.color.stellog_ink : R.color.stellog_muted));
+        row.setTextSize(16);
+        row.setTypeface(null, android.graphics.Typeface.BOLD);
+
+        if (completed) {
+            row.setText(String.format(
+                    Locale.CHINA,
+                    "%s  ·  已完成 %d %s",
+                    habit.name,
+                    record.value,
+                    habit.unit
+            ));
+        } else {
+            row.setText(String.format(Locale.CHINA, "%s  ·  待打卡", habit.name));
+        }
+        return row;
     }
 
     /**
@@ -301,6 +395,7 @@ public class MainActivity extends AppCompatActivity {
     private void addHabit(String name, String unit) {
         habitRepository.addHabit(name, unit);
         habitAdapter.notifyItemInserted(habits.size() - 1);
+        renderCalendarGrid();
 
         // 创建完成后自动滑到新活动卡片。
         habitPager.setCurrentItem(habits.size() - 1, true);
@@ -331,6 +426,7 @@ public class MainActivity extends AppCompatActivity {
     private void checkInToday(Habit habit) {
         if (habitRepository.checkInToday(habit)) {
             habitAdapter.notifyItemChanged(currentHabitPosition);
+            renderCalendarGrid();
         }
     }
 
@@ -340,6 +436,7 @@ public class MainActivity extends AppCompatActivity {
     private void cancelTodayCheckIn(Habit habit) {
         if (habitRepository.cancelTodayCheckIn(habit)) {
             habitAdapter.notifyItemChanged(currentHabitPosition);
+            renderCalendarGrid();
         }
     }
 
@@ -387,6 +484,7 @@ public class MainActivity extends AppCompatActivity {
         int habitPosition = habitRepository.findHabitPosition(habitId);
         if (habitRepository.applyRecordDetailValue(habitId, newValue)) {
             habitAdapter.notifyItemChanged(habitPosition);
+            renderSelectedDateRecords();
         }
     }
 

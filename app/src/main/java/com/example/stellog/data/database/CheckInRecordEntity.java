@@ -5,17 +5,19 @@ import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
 import com.example.stellog.data.model.CheckInRecord;
+import com.example.stellog.util.DateUtils;
 
 /**
  * Room 中的打卡记录表结构。
  *
- * date 在业务模型中是 RecordDate；落库时拆成 year/month/day，便于按日期查询和建立唯一索引。
+ * date 在业务模型中是 RecordDate；落库时拆成 year/month/day，另存 dateKey 便于范围查询和建立索引。
  */
 @Entity(
         tableName = "check_in_records",
         indices = {
                 @Index("habitId"),
-                @Index(value = {"habitId", "year", "month", "day"}, unique = true)
+                @Index("dateKey"),
+                @Index(value = {"habitId", "dateKey"}, unique = true)
         }
 )
 public class CheckInRecordEntity {
@@ -26,6 +28,7 @@ public class CheckInRecordEntity {
     public int year;
     public int month;
     public int day;
+    public int dateKey;
     public long value;
     public String source;
     public long createdAt;
@@ -42,6 +45,7 @@ public class CheckInRecordEntity {
         entity.year = record.date.year;
         entity.month = record.date.month;
         entity.day = record.date.day;
+        entity.dateKey = DateUtils.toDateKey(record.date);
         entity.value = record.value;
         entity.source = record.source;
         entity.createdAt = record.createdAt;
