@@ -43,9 +43,8 @@ public class MainActivity extends AppCompatActivity {
     // 当前版本中每次打卡默认增加 1，后续可以改成用户填写的数量。
     private static final long DEFAULT_RECORD_VALUE = 0L;
 
-    // 内存中的活动列表；后续接入数据库时可替换为持久化查询结果。
-    private final HabitRepository habitRepository = new HabitRepository();
-    private final List<Habit> habits = habitRepository.getHabits();
+    private HabitRepository habitRepository;
+    private List<Habit> habits;
 
     // 内存中的打卡记录列表；卡片上的本周状态和今日状态都由它推导。
 
@@ -119,6 +118,8 @@ public class MainActivity extends AppCompatActivity {
         calendarTab = findViewById(R.id.calendar_tab);
         calendarGrid = findViewById(R.id.calendar_grid);
         calendarMonthTitle = findViewById(R.id.calendar_month_title);
+        habitRepository = new HabitRepository(getApplicationContext());
+        habits = habitRepository.getHabits();
         setupHabitPager();
         updateHeader(0);
         setupCalendarNavigation();
