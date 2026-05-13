@@ -1,6 +1,7 @@
 package com.example.stellog.ui;
 
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -19,6 +20,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 
@@ -53,6 +55,8 @@ public class MainActivity extends AppCompatActivity {
 
     private ViewPager2 habitPager;
     private HabitPagerAdapter habitAdapter;
+    private RecyclerView habitList;
+    private HabitListAdapter habitListAdapter;
     private TextView pageIndicatorText;
     private View calendarContent;
     private TextView homeTab;
@@ -70,6 +74,7 @@ public class MainActivity extends AppCompatActivity {
     private Calendar selectedDate = Calendar.getInstance();
     private final HashSet<Long> selectedCalendarHabitIds = new HashSet<>();
 
+    private boolean listMode = false;
     private int currentHabitPosition = 0;
 
     // 接收“创建活动页面”返回的数据，并将其转成 Habit 加入列表。
@@ -140,6 +145,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         pageIndicatorText = findViewById(R.id.page_indicator_text);
+        habitList = findViewById(R.id.habit_list);
         calendarContent = findViewById(R.id.calendar_content);
         homeTab = findViewById(R.id.home_tab);
         calendarTab = findViewById(R.id.calendar_tab);
@@ -156,6 +162,8 @@ public class MainActivity extends AppCompatActivity {
         habits = habitRepository.getHabits();
         selectAllCalendarHabits();
         setupHabitPager();
+        setupHabitList();
+        setupViewModeSwitch();
         updateHeader(0);
         setupCalendarNavigation();
         renderCalendarGrid();
@@ -183,17 +191,34 @@ public class MainActivity extends AppCompatActivity {
         updateCalendarFilterLabel();
     }
 
-    @SuppressWarnings("unchecked")
     private void applyHabitFilterResult(Intent data) {
-        Object extra = data.getSerializableExtra(HabitFilterActivity.EXTRA_SELECTED_HABIT_IDS);
-        if (!(extra instanceof HashSet<?>)) {
+        HashSet<Long> selectedHabitIds = getSelectedHabitIdsExtra(data);
+        if (selectedHabitIds == null) {
             return;
         }
 
         selectedCalendarHabitIds.clear();
-        selectedCalendarHabitIds.addAll((HashSet<Long>) extra);
+        selectedCalendarHabitIds.addAll(selectedHabitIds);
         updateCalendarFilterLabel();
         renderCalendarGrid();
+    }
+
+    @SuppressWarnings({"deprecation", "unchecked"})
+    private HashSet<Long> getSelectedHabitIdsExtra(Intent data) {
+        Object extra;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            extra = data.getSerializableExtra(
+                    HabitFilterActivity.EXTRA_SELECTED_HABIT_IDS,
+                    HashSet.class
+            );
+        } else {
+            extra = data.getSerializableExtra(HabitFilterActivity.EXTRA_SELECTED_HABIT_IDS);
+        }
+
+        if (!(extra instanceof HashSet<?>)) {
+            return null;
+        }
+        return (HashSet<Long>) extra;
     }
 
     private void updateCalendarFilterLabel() {
@@ -229,9 +254,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void showHomePage() {
         findViewById(R.id.view_mode_switch).setVisibility(View.VISIBLE);
-        findViewById(R.id.page_indicator).setVisibility(View.VISIBLE);
-        findViewById(R.id.side_rail).setVisibility(View.VISIBLE);
-        habitPager.setVisibility(View.VISIBLE);
+        applyViewMode();
         findViewById(R.id.add_activity_button).setVisibility(View.VISIBLE);
         calendarContent.setVisibility(View.GONE);
 
@@ -246,6 +269,7 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.page_indicator).setVisibility(View.GONE);
         findViewById(R.id.side_rail).setVisibility(View.GONE);
         habitPager.setVisibility(View.GONE);
+        habitList.setVisibility(View.GONE);
         findViewById(R.id.add_activity_button).setVisibility(View.GONE);
         calendarContent.setVisibility(View.VISIBLE);
 
@@ -380,9 +404,10 @@ public class MainActivity extends AppCompatActivity {
 
         calendarSelectedDateTitle.setText(String.format(
                 Locale.CHINA,
-                "%d 月 %d 日",
+                "%d-%d-%d",
+                recordDate.year,
                 recordDate.month,
-                recordDate.day
+                recordDate.day   
         ));
         updateSelectedDateHint();
 
@@ -514,6 +539,41 @@ public class MainActivity extends AppCompatActivity {
         return button;
     }
 
+    private void setupHabitList() {
+        habitList.setLayoutManager(new LinearLayoutManager(this));
+        habitListAdapter = new HabitListAdapter(habits);
+        habitList.setAdapter(habitListAdapter);
+    }
+
+    private void setupViewModeSwitch() {
+        findViewById(R.id.card_mode).setOnClickListener(v -> {
+            listMode = false;
+            applyViewMode();
+        });
+        findViewById(R.id.list_mode).setOnClickListener(v -> {
+            listMode = true;
+            applyViewMode();
+        });
+        applyViewMode();
+    }
+
+    private void applyViewMode() {
+        View pageIndicator = findViewById(R.id.page_indicator);
+        View sideRail = findViewById(R.id.side_rail);
+        TextView cardMode = findViewById(R.id.card_mode);
+        TextView listModeButton = findViewById(R.id.list_mode);
+
+        habitPager.setVisibility(listMode ? View.GONE : View.VISIBLE);
+        habitList.setVisibility(listMode ? View.VISIBLE : View.GONE);
+        pageIndicator.setVisibility(listMode ? View.GONE : View.VISIBLE);
+        sideRail.setVisibility(listMode ? View.GONE : View.VISIBLE);
+
+        cardMode.setBackgroundResource(listMode ? 0 : R.drawable.bg_mode_selected);
+        cardMode.setTextColor(getColor(listMode ? R.color.stellog_muted : R.color.white));
+        listModeButton.setBackgroundResource(listMode ? R.drawable.bg_mode_selected : 0);
+        listModeButton.setTextColor(getColor(listMode ? R.color.white : R.color.stellog_muted));
+    }
+
     /**
      * 初始化活动卡片 ViewPager。
      *
@@ -555,6 +615,8 @@ public class MainActivity extends AppCompatActivity {
         selectedCalendarHabitIds.add(habit.id);
         updateCalendarFilterLabel();
         habitAdapter.notifyItemInserted(habits.size() - 1);
+        habitListAdapter.notifyItemInserted(habits.size() - 1);
+        habitPager.setCurrentItem(habits.size() - 1, true);
         renderCalendarGrid();
 
         // 创建完成后自动滑到新活动卡片。
@@ -585,7 +647,7 @@ public class MainActivity extends AppCompatActivity {
      */
     private void checkInToday(Habit habit) {
         if (habitRepository.checkInToday(habit)) {
-            habitAdapter.notifyItemChanged(currentHabitPosition);
+            refreshHabitUi(habit);
             renderCalendarGrid();
         }
     }
@@ -605,6 +667,7 @@ public class MainActivity extends AppCompatActivity {
                 : CheckInRecord.SOURCE_PATCH;
         if (habitRepository.checkInOnDate(habit, recordDate, source)) {
             habitAdapter.notifyDataSetChanged();
+            habitListAdapter.notifyDataSetChanged();
             renderCalendarGrid();
         }
     }
@@ -614,7 +677,7 @@ public class MainActivity extends AppCompatActivity {
      */
     private void cancelTodayCheckIn(Habit habit) {
         if (habitRepository.cancelTodayCheckIn(habit)) {
-            habitAdapter.notifyItemChanged(currentHabitPosition);
+            refreshHabitUi(habit);
             renderCalendarGrid();
         }
     }
@@ -686,8 +749,82 @@ public class MainActivity extends AppCompatActivity {
         if (habitRepository.applyRecordDetailValue(habitId, recordDate, newValue)) {
             if (habitPosition >= 0) {
                 habitAdapter.notifyItemChanged(habitPosition);
+                habitListAdapter.notifyItemChanged(habitPosition);
             }
             renderCalendarGrid();
+        }
+    }
+
+    private void refreshHabitUi(Habit habit) {
+        int habitPosition = habitRepository.findHabitPosition(habit.id);
+        if (habitPosition < 0) {
+            return;
+        }
+        habitAdapter.notifyItemChanged(habitPosition);
+        habitListAdapter.notifyItemChanged(habitPosition);
+    }
+
+    /**
+     * RecyclerView adapter for the compact list mode.
+     */
+    private class HabitListAdapter extends RecyclerView.Adapter<HabitListAdapter.HabitListViewHolder> {
+        private final List<Habit> items;
+
+        HabitListAdapter(List<Habit> items) {
+            this.items = items;
+        }
+
+        @NonNull
+        @Override
+        public HabitListViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            View view = LayoutInflater.from(parent.getContext())
+                    .inflate(R.layout.item_habit_list, parent, false);
+            return new HabitListViewHolder(view);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull HabitListViewHolder holder, int position) {
+            holder.bind(items.get(position), position);
+        }
+
+        @Override
+        public int getItemCount() {
+            return items.size();
+        }
+
+        class HabitListViewHolder extends RecyclerView.ViewHolder {
+            private final TextView habitName;
+            private final TextView recordCount;
+            private final TextView checkStatus;
+
+            HabitListViewHolder(@NonNull View itemView) {
+                super(itemView);
+                habitName = itemView.findViewById(R.id.list_habit_name);
+                recordCount = itemView.findViewById(R.id.list_habit_record_count);
+                checkStatus = itemView.findViewById(R.id.list_check_status);
+            }
+
+            void bind(Habit habit, int position) {
+                boolean checkedInToday = getTodayRecord(habit.id) != null;
+
+                habitName.setText(habit.name);
+                recordCount.setText(String.format(Locale.CHINA, "\u7d2f\u8ba1\u6253\u5361 %d \u5929", habit.recordNum));
+
+                if (checkedInToday) {
+                    checkStatus.setText("\u5df2\u6253\u5361");
+                    checkStatus.setTextColor(getColor(R.color.stellog_muted));
+                    checkStatus.setBackgroundResource(R.drawable.bg_create_action_secondary);
+                    checkStatus.setOnClickListener(null);
+                } else {
+                    checkStatus.setText("\u6253\u5361");
+                    checkStatus.setTextColor(getColor(R.color.white));
+                    checkStatus.setBackgroundResource(R.drawable.bg_check_in_button);
+                    checkStatus.setOnClickListener(v -> {
+                        currentHabitPosition = position;
+                        checkInToday(habit);
+                    });
+                }
+            }
         }
     }
 

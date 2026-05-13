@@ -1,6 +1,7 @@
 package com.example.stellog.ui;
 
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
@@ -56,17 +57,31 @@ public class HabitFilterActivity extends AppCompatActivity {
         renderOptions();
     }
 
-    @SuppressWarnings("unchecked")
     private void loadInitialSelection() {
-        Object extra = getIntent().getSerializableExtra(EXTRA_SELECTED_HABIT_IDS);
-        if (extra instanceof HashSet<?>) {
-            selectedHabitIds.addAll((HashSet<Long>) extra);
+        HashSet<Long> initialSelection = getSelectedHabitIdsExtra();
+        if (initialSelection != null) {
+            selectedHabitIds.addAll(initialSelection);
             return;
         }
 
         for (Habit habit : habits) {
             selectedHabitIds.add(habit.id);
         }
+    }
+
+    @SuppressWarnings({"deprecation", "unchecked"})
+    private HashSet<Long> getSelectedHabitIdsExtra() {
+        Object extra;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            extra = getIntent().getSerializableExtra(EXTRA_SELECTED_HABIT_IDS, HashSet.class);
+        } else {
+            extra = getIntent().getSerializableExtra(EXTRA_SELECTED_HABIT_IDS);
+        }
+
+        if (!(extra instanceof HashSet<?>)) {
+            return null;
+        }
+        return (HashSet<Long>) extra;
     }
 
     private void renderOptions() {

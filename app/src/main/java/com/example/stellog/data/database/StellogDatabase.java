@@ -43,7 +43,7 @@ public abstract class StellogDatabase extends RoomDatabase {
                             // 当前阶段为了先跑通功能，允许主线程查询；后续应迁移到后台线程。
                             .allowMainThreadQueries()
                             // 开发阶段表结构变化时直接重建数据库；正式版本应改为 Migration。
-                            .fallbackToDestructiveMigration()
+                            .fallbackToDestructiveMigration(true)
                             .build();
                 }
             }

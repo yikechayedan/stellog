@@ -112,6 +112,22 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/view_mode_switch" />
 
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/habit_list"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:clipToPadding="false"
+        android:paddingStart="22dp"
+        android:paddingTop="28dp"
+        android:paddingEnd="22dp"
+        android:paddingBottom="110dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/bottom_tabs"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/view_mode_switch"
+        tools:listitem="@layout/item_habit_list" />
+
     <ScrollView
         android:id="@+id/calendar_content"
         android:layout_width="0dp"
